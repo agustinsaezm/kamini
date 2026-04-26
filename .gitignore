@@ -1,0 +1,21 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# prisma
+prisma/dev.db
+prisma/dev.db-shm
+prisma/dev.db-wal
+
+# misc
+.DS_Store
+*.pem
+tsconfig.tsbuildinfo
