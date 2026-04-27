@@ -29,9 +29,9 @@ model Treatment {
 }
 
 model Medication {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   treatmentId   String
-  treatment     Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  treatment     Treatment   @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
   name          String
   dose          String
   startDate     String
@@ -40,5 +40,17 @@ model Medication {
   firstDoseTime String
   durationDays  Int
   note          String?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime    @default(now())
+  dosesTaken    DoseTaken[]
+}
+
+model DoseTaken {
+  id           String     @id @default(cuid())
+  medicationId String
+  medication   Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  date         String
+  time         String
+  takenAt      DateTime   @default(now())
+
+  @@unique([medicationId, date, time])
 }

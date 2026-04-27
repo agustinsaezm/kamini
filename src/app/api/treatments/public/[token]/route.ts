@@ -9,7 +9,7 @@ export async function GET(
 
   const treatment = await prisma.treatment.findUnique({
     where: { shareToken: token },
-    include: { medications: true },
+    include: { medications: { include: { dosesTaken: true } } },
   })
 
   if (!treatment) {

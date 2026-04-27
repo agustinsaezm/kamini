@@ -1,7 +1,14 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, useCallback, use } from 'react'
 import { generateSchedule, getEndDate, getDoseTimesForDay } from '@/lib/schedule'
+
+interface DoseTaken {
+  id: string
+  medicationId: string
+  date: string
+  time: string
+}
 
 interface Medication {
   id: string
@@ -13,6 +20,7 @@ interface Medication {
   firstDoseTime: string
   durationDays: number
   note: string | null
+  dosesTaken: DoseTaken[]
 }
 
 interface Treatment {
@@ -26,7 +34,7 @@ interface Treatment {
 
 interface DoseSlot {
   time: string
-  meds: { name: string; dose: string }[]
+  meds: { id: string; name: string; dose: string }[]
 }
 
 interface DayGroup {
@@ -34,6 +42,7 @@ interface DayGroup {
   label: string
   isToday: boolean
   isTomorrow: boolean
+  isPast: boolean
   slots: DoseSlot[]
 }
 
@@ -50,7 +59,7 @@ function getTodayStr() {
   return t.toISOString().split('T')[0]
 }
 
-function formatDayLabel(dateStr: string): { label: string; isToday: boolean; isTomorrow: boolean } {
+function formatDayLabel(dateStr: string): { label: string; isToday: boolean; isTomorrow: boolean; isPast: boolean } {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const tomorrow = new Date(today)
@@ -63,47 +72,51 @@ function formatDayLabel(dateStr: string): { label: string; isToday: boolean; isT
   const shortLabel = `${dayCapital} ${d.getDate()} de ${monthName}`
 
   if (d.toDateString() === today.toDateString()) {
-    return { label: shortLabel, isToday: true, isTomorrow: false }
+    return { label: shortLabel, isToday: true, isTomorrow: false, isPast: false }
   }
   if (d.toDateString() === tomorrow.toDateString()) {
-    return { label: shortLabel, isToday: false, isTomorrow: true }
+    return { label: shortLabel, isToday: false, isTomorrow: true, isPast: false }
   }
-  return { label: shortLabel, isToday: false, isTomorrow: false }
+  return { label: shortLabel, isToday: false, isTomorrow: false, isPast: d < today }
 }
 
-function buildDayGroups(medications: Medication[], showAll: boolean): DayGroup[] {
+function buildDayGroups(medications: Medication[], showPast: boolean, showAll: boolean): DayGroup[] {
   const todayStr = getTodayStr()
-  const map: Map<string, Map<string, { name: string; dose: string }[]>> = new Map()
+  const map: Map<string, Map<string, { id: string; name: string; dose: string }[]>> = new Map()
 
   for (const med of medications) {
     const doses = generateSchedule(med)
     for (const dose of doses) {
-      if (!showAll && dose.date < todayStr) continue
+      if (!showPast && dose.date < todayStr) continue
       if (!map.has(dose.date)) map.set(dose.date, new Map())
       const timeMap = map.get(dose.date)!
       if (!timeMap.has(dose.time)) timeMap.set(dose.time, [])
-      timeMap.get(dose.time)!.push({ name: med.name, dose: med.dose })
+      timeMap.get(dose.time)!.push({ id: med.id, name: med.name, dose: med.dose })
     }
   }
 
-  const sortedDates = [...map.keys()].sort()
-  const filtered = showAll
-    ? sortedDates
-    : sortedDates.filter(d => {
-        const maxDate = new Date(todayStr + 'T00:00:00')
-        maxDate.setDate(maxDate.getDate() + 30)
-        return d <= maxDate.toISOString().split('T')[0]
-      })
+  const maxFutureDate = (() => {
+    const d = new Date(todayStr + 'T00:00:00')
+    d.setDate(d.getDate() + 30)
+    return d.toISOString().split('T')[0]
+  })()
 
-  return filtered.map(dateStr => {
+  const sortedDates = [...map.keys()].sort().filter(d => {
+    if (d < todayStr) return showPast
+    if (!showAll) return d <= maxFutureDate
+    return true
+  })
+
+  return sortedDates.map(dateStr => {
     const timeMap = map.get(dateStr)!
     const sortedTimes = [...timeMap.keys()].sort()
-    const { label, isToday, isTomorrow } = formatDayLabel(dateStr)
+    const { label, isToday, isTomorrow, isPast } = formatDayLabel(dateStr)
     return {
       dateStr,
       label,
       isToday,
       isTomorrow,
+      isPast,
       slots: sortedTimes.map(time => ({ time, meds: timeMap.get(time)! })),
     }
   })
@@ -181,12 +194,7 @@ function EditDoseTimeModal({
   )
 }
 
-// Sidebar: medication details card
-function MedDetailCard({
-  med, onEdit,
-}: {
-  med: Medication; onEdit: (med: Medication) => void
-}) {
+function MedDetailCard({ med, onEdit }: { med: Medication; onEdit: (med: Medication) => void }) {
   const endDate = getEndDate(med.startDate, med.durationDays)
   const todayStr = getTodayStr()
   const isActive = endDate >= todayStr
@@ -196,33 +204,24 @@ function MedDetailCard({
 
   return (
     <div className="bg-white rounded-xl p-4" style={{ border: '1px solid #c2c6d4' }}>
-      {/* Header row */}
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
             <h3 className="font-bold text-sm leading-tight" style={{ color: '#0b1c30' }}>{med.name}</h3>
-            <span
-              className="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-              style={isActive
-                ? { backgroundColor: '#dcfce7', color: '#166534' }
-                : { backgroundColor: '#f1f5f9', color: '#475569' }}
-            >
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+              style={isActive ? { backgroundColor: '#dcfce7', color: '#166534' } : { backgroundColor: '#f1f5f9', color: '#475569' }}>
               {isActive ? 'Activo' : 'Completado'}
             </span>
           </div>
           <p className="text-xs" style={{ color: '#424752' }}>{med.dose}</p>
         </div>
       </div>
-
-      {/* Dose times */}
       <div className="flex gap-1.5 flex-wrap mb-3">
         {doseTimes.map(t => (
           <span key={t} className="text-xs font-bold px-2 py-0.5 rounded-full"
             style={{ backgroundColor: '#e5eeff', color: '#005EB8' }}>{t}</span>
         ))}
       </div>
-
-      {/* Info grid */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-3 text-xs">
         <div>
           <span style={{ color: '#727783' }}>Inicio </span>
@@ -243,7 +242,6 @@ function MedDetailCard({
           <span className="font-semibold" style={{ color: '#0b1c30' }}>{med.timesPerDay}</span>
         </div>
       </div>
-
       {med.note && (
         <div className="flex items-start gap-1.5 px-2.5 py-2 rounded-lg text-xs mb-3"
           style={{ backgroundColor: '#eff4ff', color: '#424752' }}>
@@ -251,14 +249,11 @@ function MedDetailCard({
           {med.note}
         </div>
       )}
-
-      <button
-        onClick={() => onEdit(med)}
+      <button onClick={() => onEdit(med)}
         className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
         style={{ backgroundColor: '#eff4ff', color: '#005EB8', border: '1px solid #c2c6d4' }}
         onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#e5eeff')}
-        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#eff4ff')}
-      >
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#eff4ff')}>
         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>schedule</span>
         Editar horario de primera dosis
       </button>
@@ -272,7 +267,9 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [editingMed, setEditingMed] = useState<Medication | null>(null)
+  const [showPast, setShowPast] = useState(false)
   const [showAll, setShowAll] = useState(false)
+  const [togglingDose, setTogglingDose] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/treatments/public/${token}`)
@@ -285,6 +282,77 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
     setTreatment(prev => prev
       ? { ...prev, medications: prev.medications.map(m => m.id === medId ? { ...m, firstDoseTime: newTime } : m) }
       : prev)
+  }
+
+  const isDoseTaken = useCallback((medId: string, date: string, time: string) => {
+    if (!treatment) return false
+    const med = treatment.medications.find(m => m.id === medId)
+    return med?.dosesTaken.some(d => d.date === date && d.time === time) ?? false
+  }, [treatment])
+
+  const handleToggleDose = async (medId: string, date: string, time: string) => {
+    const key = `${medId}-${date}-${time}`
+    if (togglingDose === key) return
+    setTogglingDose(key)
+
+    const taken = isDoseTaken(medId, date, time)
+
+    // Optimistic update
+    setTreatment(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        medications: prev.medications.map(m => {
+          if (m.id !== medId) return m
+          if (taken) {
+            return { ...m, dosesTaken: m.dosesTaken.filter(d => !(d.date === date && d.time === time)) }
+          } else {
+            return { ...m, dosesTaken: [...m.dosesTaken, { id: 'temp', medicationId: medId, date, time }] }
+          }
+        }),
+      }
+    })
+
+    try {
+      const res = await fetch(`/api/treatments/public/${token}/doses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ medicationId: medId, date, time }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      // Replace temp id with real one if created
+      if (data.taken && data.id) {
+        setTreatment(prev => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            medications: prev.medications.map(m => {
+              if (m.id !== medId) return m
+              return { ...m, dosesTaken: m.dosesTaken.map(d => d.id === 'temp' ? { ...d, id: data.id } : d) }
+            }),
+          }
+        })
+      }
+    } catch {
+      // Revert on error
+      setTreatment(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          medications: prev.medications.map(m => {
+            if (m.id !== medId) return m
+            if (taken) {
+              return { ...m, dosesTaken: [...m.dosesTaken, { id: 'temp', medicationId: medId, date, time }] }
+            } else {
+              return { ...m, dosesTaken: m.dosesTaken.filter(d => !(d.date === date && d.time === time)) }
+            }
+          }),
+        }
+      })
+    } finally {
+      setTogglingDose(null)
+    }
   }
 
   if (loading) {
@@ -312,12 +380,12 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
 
   const todayStr = getTodayStr()
   const allCompleted = treatment.medications.every(m => getEndDate(m.startDate, m.durationDays) < todayStr)
-  const dayGroups = buildDayGroups(treatment.medications, showAll || allCompleted)
+  const dayGroups = buildDayGroups(treatment.medications, showPast || allCompleted, showAll || allCompleted)
+  const pastCount = buildDayGroups(treatment.medications, true, true).filter(d => d.isPast).length
   const createdAt = new Date(treatment.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8f9ff' }}>
-      {/* Header */}
       <header className="bg-white sticky top-0 z-40" style={{ borderBottom: '1px solid #c2c6d4' }}>
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
           <span className="material-symbols-outlined" style={{ fontSize: 22, color: '#005EB8' }}>medication</span>
@@ -327,7 +395,6 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
       </header>
 
       <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Patient card */}
         <div className="bg-white rounded-xl p-4 mb-6 flex items-center gap-4"
           style={{ border: '1px solid #c2c6d4' }}>
           <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
@@ -349,20 +416,34 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
           )}
         </div>
 
-        {/* Two-column layout */}
         <div className="flex flex-col lg:flex-row gap-6 items-start">
-
           {/* LEFT: Calendar */}
           <div className="flex-1 min-w-0">
             <h2 className="text-base font-bold mb-4" style={{ color: '#0b1c30' }}>
               {allCompleted ? 'Historial de tomas' : 'Calendario de tomas'}
             </h2>
 
+            {/* Show past button */}
+            {!allCompleted && pastCount > 0 && (
+              <button
+                onClick={() => setShowPast(v => !v)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold mb-4 transition-colors"
+                style={{ border: '1px solid #c2c6d4', color: '#424752', backgroundColor: '#fff' }}
+                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8f9ff')}
+                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#fff')}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                  {showPast ? 'expand_less' : 'history'}
+                </span>
+                {showPast ? 'Ocultar días anteriores' : `Ver días anteriores (${pastCount})`}
+              </button>
+            )}
+
             {dayGroups.length === 0 ? (
               <div className="text-center py-10 bg-white rounded-xl" style={{ border: '1px solid #c2c6d4' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: 36, color: '#c2c6d4' }}>event_available</span>
                 <p className="mt-3 text-sm" style={{ color: '#424752' }}>No hay tomas programadas próximamente.</p>
-                <button onClick={() => setShowAll(true)}
+                <button onClick={() => setShowPast(true)}
                   className="mt-3 text-sm font-semibold underline" style={{ color: '#005EB8' }}>
                   Ver historial completo
                 </button>
@@ -374,27 +455,21 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
                     className={day.isToday ? 'rounded-2xl p-4' : ''}
                     style={day.isToday ? { backgroundColor: '#e5eeff', border: '1.5px solid #005EB8' } : {}}>
 
-                    {/* Day header */}
                     <div className="flex items-center gap-2 mb-2.5">
                       {day.isToday && (
                         <span className="text-xs font-bold px-2.5 py-0.5 rounded-full text-white"
-                          style={{ backgroundColor: '#005EB8' }}>
-                          HOY
-                        </span>
+                          style={{ backgroundColor: '#005EB8' }}>HOY</span>
                       )}
                       {day.isTomorrow && (
                         <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full"
-                          style={{ backgroundColor: '#e5eeff', color: '#005EB8' }}>
-                          MAÑANA
-                        </span>
+                          style={{ backgroundColor: '#e5eeff', color: '#005EB8' }}>MAÑANA</span>
                       )}
-                      <p className={`text-xs font-bold uppercase tracking-wide ${day.isToday ? '' : ''}`}
-                        style={{ color: day.isToday ? '#005EB8' : '#424752' }}>
+                      <p className="text-xs font-bold uppercase tracking-wide"
+                        style={{ color: day.isToday ? '#005EB8' : day.isPast ? '#9ca3af' : '#424752' }}>
                         {day.label}
                       </p>
                     </div>
 
-                    {/* Dose slots */}
                     <div className="space-y-2">
                       {day.slots.map(slot => (
                         <div key={slot.time}
@@ -402,21 +477,58 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
                           style={{
                             border: day.isToday ? '1.5px solid #005EB8' : '1px solid #e5eeff',
                             boxShadow: day.isToday ? '0 1px 6px rgba(0,94,184,0.10)' : 'none',
+                            opacity: day.isPast ? 0.75 : 1,
                           }}>
                           <div className="flex-shrink-0 w-12 text-center">
-                            <p className="text-base font-bold" style={{ color: '#005EB8' }}>{slot.time}</p>
+                            <p className="text-base font-bold"
+                              style={{ color: day.isPast ? '#9ca3af' : '#005EB8' }}>{slot.time}</p>
                           </div>
-                          <div className="flex-1 space-y-1.5">
-                            {slot.meds.map((med, i) => (
-                              <div key={i} className="flex items-baseline gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5"
-                                  style={{ backgroundColor: '#005EB8' }} />
-                                <p className="text-sm font-semibold" style={{ color: '#0b1c30' }}>
-                                  {med.name}
-                                  <span className="font-normal ml-1" style={{ color: '#424752' }}>· {med.dose}</span>
-                                </p>
-                              </div>
-                            ))}
+                          <div className="flex-1 space-y-2">
+                            {slot.meds.map((med, i) => {
+                              const taken = isDoseTaken(med.id, day.dateStr, slot.time)
+                              const key = `${med.id}-${day.dateStr}-${slot.time}`
+                              const toggling = togglingDose === key
+                              return (
+                                <div key={i} className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: taken ? '#16a34a' : day.isPast ? '#9ca3af' : '#005EB8' }} />
+                                  <p className="text-sm font-semibold flex-1"
+                                    style={{
+                                      color: taken ? '#16a34a' : day.isPast ? '#9ca3af' : '#0b1c30',
+                                      textDecoration: taken ? 'line-through' : 'none',
+                                    }}>
+                                    {med.name}
+                                    <span className="font-normal ml-1"
+                                      style={{ color: taken ? '#86efac' : day.isPast ? '#c4c9d4' : '#424752' }}>
+                                      · {med.dose}
+                                    </span>
+                                  </p>
+                                  <button
+                                    onClick={() => handleToggleDose(med.id, day.dateStr, slot.time)}
+                                    disabled={toggling}
+                                    title={taken ? 'Marcar como no tomado' : 'Marcar como tomado'}
+                                    className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all disabled:opacity-50"
+                                    style={taken
+                                      ? { backgroundColor: '#dcfce7', border: '1.5px solid #16a34a' }
+                                      : { backgroundColor: '#f8f9ff', border: '1.5px solid #c2c6d4' }
+                                    }
+                                    onMouseEnter={e => {
+                                      if (!taken) e.currentTarget.style.borderColor = '#005EB8'
+                                    }}
+                                    onMouseLeave={e => {
+                                      if (!taken) e.currentTarget.style.borderColor = '#c2c6d4'
+                                    }}
+                                  >
+                                    {toggling
+                                      ? <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af' }}>progress_activity</span>
+                                      : taken
+                                        ? <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#16a34a' }}>check</span>
+                                        : <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#c2c6d4' }}>check</span>
+                                    }
+                                  </button>
+                                </div>
+                              )
+                            })}
                           </div>
                         </div>
                       ))}
@@ -435,22 +547,19 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
             )}
           </div>
 
-          {/* RIGHT: Sticky sidebar - Medication details */}
-          <div className="w-full lg:w-80 xl:w-96 lg:sticky lg:top-20 lg:self-start" style={{ maxHeight: 'calc(100vh - 88px)', overflowY: 'auto' }}>
-            <h2 className="text-base font-bold mb-4" style={{ color: '#0b1c30' }}>
-              Medicamentos
-            </h2>
+          {/* RIGHT: Sticky sidebar */}
+          <div className="w-full lg:w-80 xl:w-96 lg:sticky lg:top-20 lg:self-start"
+            style={{ maxHeight: 'calc(100vh - 88px)', overflowY: 'auto' }}>
+            <h2 className="text-base font-bold mb-4" style={{ color: '#0b1c30' }}>Medicamentos</h2>
             <div className="space-y-3">
               {treatment.medications.map(med => (
                 <MedDetailCard key={med.id} med={med} onEdit={setEditingMed} />
               ))}
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* Edit modal */}
       {editingMed && (
         <EditDoseTimeModal
           med={editingMed} token={token}
