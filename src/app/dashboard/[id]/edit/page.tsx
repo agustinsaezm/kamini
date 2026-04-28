@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import TreatmentForm from '../../TreatmentForm'
 
 export const metadata = {
-  title: 'Editar Tratamiento · Kamini',
+  title: 'Editar Tratamiento · Kimki',
 }
 
 export default async function EditTreatmentPage({

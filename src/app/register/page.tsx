@@ -71,7 +71,7 @@ export default function RegisterPage() {
             <span className="material-symbols-outlined" style={{ fontSize: 28, color: '#005EB8' }}>
               medication
             </span>
-            <span className="text-2xl font-bold" style={{ color: '#005EB8' }}>Kamini</span>
+            <span className="text-2xl font-bold" style={{ color: '#005EB8' }}>Kimki</span>
           </div>
 
           <h1 className="text-xl font-bold text-on-surface mb-1">Crear cuenta</h1>

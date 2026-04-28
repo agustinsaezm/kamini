@@ -389,7 +389,7 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
       <header className="bg-white sticky top-0 z-40" style={{ borderBottom: '1px solid #c2c6d4' }}>
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3">
           <span className="material-symbols-outlined" style={{ fontSize: 22, color: '#005EB8' }}>medication</span>
-          <span className="text-lg font-bold" style={{ color: '#005EB8' }}>Kamini</span>
+          <span className="text-lg font-bold" style={{ color: '#005EB8' }}>Kimki</span>
           <span className="text-sm ml-1" style={{ color: '#424752' }}>· Plan de Tratamiento</span>
         </div>
       </header>
@@ -488,6 +488,7 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
                               const taken = isDoseTaken(med.id, day.dateStr, slot.time)
                               const key = `${med.id}-${day.dateStr}-${slot.time}`
                               const toggling = togglingDose === key
+                              const canCheck = day.isToday || day.isPast
                               return (
                                 <div key={i} className="flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0"
@@ -503,7 +504,7 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
                                       · {med.dose}
                                     </span>
                                   </p>
-                                  <button
+                                  {canCheck && <button
                                     onClick={() => handleToggleDose(med.id, day.dateStr, slot.time)}
                                     disabled={toggling}
                                     title={taken ? 'Marcar como no tomado' : 'Marcar como tomado'}
@@ -525,7 +526,7 @@ export default function PatientView({ params }: { params: Promise<{ token: strin
                                         ? <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#16a34a' }}>check</span>
                                         : <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#c2c6d4' }}>check</span>
                                     }
-                                  </button>
+                                  </button>}
                                 </div>
                               )
                             })}

@@ -1,7 +1,7 @@
 import TreatmentForm from '../TreatmentForm'
 
 export const metadata = {
-  title: 'Nuevo Tratamiento · Kamini',
+  title: 'Nuevo Tratamiento · Kimki',
 }
 
 export default function NewTreatmentPage() {

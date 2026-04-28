@@ -16,7 +16,7 @@ export default function Header({ name, specialty }: HeaderProps) {
           <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#005EB8' }}>
             medication
           </span>
-          <span className="text-xl font-bold" style={{ color: '#005EB8' }}>Kamini</span>
+          <span className="text-xl font-bold" style={{ color: '#005EB8' }}>Kimki</span>
         </Link>
 
         <div className="flex items-center gap-4">

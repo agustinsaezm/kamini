@@ -9,7 +9,7 @@ const manrope = Manrope({
 })
 
 export const metadata: Metadata = {
-  title: 'Kamini',
+  title: 'Kimki',
   description: 'Planes de tratamiento claros para tus pacientes',
 }
 

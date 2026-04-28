@@ -60,7 +60,7 @@ export default function HomePage() {
             <span className="material-symbols-outlined text-white" style={{ fontSize: 48 }}>
               medication
             </span>
-            <span className="text-5xl font-bold tracking-tight">Kamini</span>
+            <span className="text-5xl font-bold tracking-tight">Kimki</span>
           </div>
           <p className="text-xl font-medium leading-relaxed" style={{ color: '#bfdbfe' }}>
             Planes de tratamiento claros para tus pacientes
@@ -79,7 +79,7 @@ export default function HomePage() {
             <span className="material-symbols-outlined" style={{ fontSize: 32, color: '#005EB8' }}>
               medication
             </span>
-            <span className="text-3xl font-bold" style={{ color: '#005EB8' }}>Kamini</span>
+            <span className="text-3xl font-bold" style={{ color: '#005EB8' }}>Kimki</span>
           </div>
 
           <h1 className="text-2xl font-bold text-on-surface mb-2">Iniciar sesión</h1>
