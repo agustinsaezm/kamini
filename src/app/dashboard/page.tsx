@@ -198,16 +198,28 @@ export default function DashboardPage() {
             Administra y comparte los planes de tratamiento de tus pacientes
           </p>
         </div>
-        <Link
-          href="/dashboard/new"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
-          style={{ backgroundColor: '#005EB8' }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#00478d')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#005EB8')}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
-          Nuevo Tratamiento
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/ward"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+            style={{ border: '1px solid #c2c6d4', color: '#424752', backgroundColor: '#fff' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f8f9ff')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#fff')}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>table_view</span>
+            Vista de turno
+          </Link>
+          <Link
+            href="/dashboard/new"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
+            style={{ backgroundColor: '#005EB8' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#00478d')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#005EB8')}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
+            Nuevo Tratamiento
+          </Link>
+        </div>
       </div>
 
       {/* Table card */}
