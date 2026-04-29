@@ -169,10 +169,14 @@ function MedicationBlock({
               className={inputClass}
               style={inputStyle}
             >
-              <option value={1}>1 vez</option>
-              <option value={2}>2 veces</option>
-              <option value={3}>3 veces</option>
-              <option value={4}>4 veces</option>
+              <option value={1}>1 vez — cada 24 hrs</option>
+              <option value={2}>2 veces — cada 12 hrs</option>
+              <option value={3}>3 veces — cada 8 hrs</option>
+              <option value={4}>4 veces — cada 6 hrs</option>
+              <option value={6}>6 veces — cada 4 hrs</option>
+              <option value={8}>8 veces — cada 3 hrs</option>
+              <option value={12}>12 veces — cada 2 hrs</option>
+              <option value={24}>24 veces — cada 1 hr</option>
             </select>
           </div>
 
